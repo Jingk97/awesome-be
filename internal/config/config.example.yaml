@@ -1,0 +1,231 @@
+# GoFast 完整配置文件示例
+# 这是一个包含所有配置项的完整示例，可以根据实际需求进行修改
+
+# ==================== 应用基础配置 ====================
+app:
+  name: "gofast"           # 应用名称
+  env: "dev"               # 运行环境: dev, test, prod
+  # 注意：已移除 debug 配置，Gin 模式将根据 env 自动设置
+  # dev 环境 -> DebugMode, test/prod 环境 -> ReleaseMode
+
+# ==================== 服务器配置 ====================
+server:
+  # HTTP 服务配置
+  http:
+    host: "0.0.0.0"              # 监听地址
+    port: 8080                    # 监听端口
+    read_timeout: 60s             # 读取超时时间
+    write_timeout: 60s            # 写入超时时间
+    max_header_bytes: 1048576     # 最大请求头大小 (1MB)
+
+  # gRPC 服务配置
+  grpc:
+    host: "0.0.0.0"               # 监听地址
+    port: 9090                    # 监听端口
+    max_recv_msg_size: 4194304    # 最大接收消息大小 (4MB)
+    max_send_msg_size: 4194304    # 最大发送消息大小 (4MB)
+
+# ==================== 数据库配置 ====================
+databases:
+  # 主数据库实例（MySQL）
+  - name: "main"                  # 数据库实例名称（唯一标识）
+    type: "mysql"                 # 数据库类型: mysql, postgres, sqlite
+
+    # 连接池配置
+    max_idle_conns: 10            # 最大空闲连接数
+    max_open_conns: 100           # 最大打开连接数
+    conn_max_lifetime: 3600s      # 连接最大生命周期（1小时）
+    conn_max_idle_time: 600s      # 连接最大空闲时间（10分钟）
+
+    # 超时配置
+    dial_timeout: 10s             # 连接超时
+    read_timeout: 30s             # 读取超时
+    write_timeout: 30s            # 写入超时
+
+    # 日志配置
+    log_level: "info"             # 日志级别: silent, error, warn, info
+    slow_threshold: 1s            # 慢查询阈值
+
+    # 热更新配置
+    reload:
+      grace_period: 30s           # 优雅关闭等待时间
+      force_close: true           # 超时后是否强制关闭
+      check_interval: 1s          # 检查间隔
+
+    # 健康检查
+    health_check:
+      enabled: true               # 是否启用健康检查
+      interval: 30s               # 检查间隔
+      timeout: 5s                 # 超时时间
+      retries: 3                  # 重试次数
+
+    # 主库配置（写操作）
+    master:
+      host: "127.0.0.1"
+      port: 3306
+      username: "root"
+      password: ""                # 建议通过环境变量设置: GOFAST_DATABASES_0_MASTER_PASSWORD
+      database: "gofast"
+      charset: "utf8mb4"
+      parse_time: true
+      loc: "Local"
+
+    # 从库配置（读操作）- 可选
+    slaves:
+      - host: "127.0.0.1"
+        port: 3307
+        username: "root"
+        password: ""
+        database: "gofast"
+        charset: "utf8mb4"
+        parse_time: true
+        loc: "Local"
+
+      - host: "127.0.0.1"
+        port: 3308
+        username: "root"
+        password: ""
+        database: "gofast"
+        charset: "utf8mb4"
+        parse_time: true
+        loc: "Local"
+
+  # 日志数据库实例（PostgreSQL）
+  - name: "log"
+    type: "postgres"
+    max_idle_conns: 5
+    max_open_conns: 50
+    conn_max_lifetime: 3600s
+    conn_max_idle_time: 600s
+    dial_timeout: 10s
+    read_timeout: 30s
+    write_timeout: 30s
+    log_level: "info"
+    slow_threshold: 1s
+
+    reload:
+      grace_period: 30s
+      force_close: true
+      check_interval: 1s
+
+    health_check:
+      enabled: true
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+    master:
+      host: "127.0.0.1"
+      port: 5432
+      username: "postgres"
+      password: ""                # 建议通过环境变量设置: GOFAST_DATABASES_1_MASTER_PASSWORD
+      database: "logdb"
+      sslmode: "disable"
+
+# ==================== Redis 配置 ====================
+redis:
+  mode: "standalone"              # Redis 模式: standalone, sentinel, cluster
+  addr: "127.0.0.1:6379"          # Redis 地址（单机模式）
+  password: ""                     # Redis 密码（建议通过环境变量设置: GOFAST_REDIS_PASSWORD）
+  db: 0                            # 数据库编号（0-15）
+
+  # 连接池配置
+  pool_size: 10                    # 连接池大小（最大活跃连接数）
+  min_idle_conns: 5                # 最小空闲连接数
+  max_retries: 3                   # 最大重试次数
+
+  # 超时配置
+  dial_timeout: 5s                 # 连接超时
+  read_timeout: 3s                 # 读取超时
+  write_timeout: 3s                # 写入超时
+  pool_timeout: 4s                 # 从连接池获取连接的超时
+  idle_timeout: 300s               # 空闲连接超时（5分钟）
+
+  # 连接检查
+  idle_check_frequency: 60s        # 空闲连接检查频率
+
+  # 热更新配置
+  reload:
+    grace_period: 30s              # 优雅关闭等待时间
+    force_close: true              # 超时后是否强制关闭
+    check_interval: 1s             # 检查间隔
+
+  # 健康检查
+  health_check:
+    enabled: true                  # 是否启用健康检查
+    interval: 30s                  # 检查间隔
+    timeout: 5s                    # 超时时间
+
+# ==================== 日志配置 ====================
+logger:
+  level: "info"                    # 日志级别: debug, info, warn, error, fatal
+  format: "json"                   # 日志格式: json, console
+  output: "stdout"                 # 输出位置: stdout, stderr, file
+
+  # 文件输出配置（当 output 为 file 时生效）
+  file:
+    filename: "logs/app.log"       # 日志文件路径
+    max_size: 100                  # 单个文件最大大小 (MB)
+    max_backups: 10                # 保留旧文件的最大个数
+    max_age: 30                    # 保留旧文件的最大天数
+    compress: true                 # 是否压缩旧文件
+
+  enable_caller: true              # 是否显示调用位置（文件名和行号）
+  enable_stacktrace: false         # 是否显示堆栈信息（仅 error 级别以上）
+
+# ==================== 健康检查配置 ====================
+health:
+  timeout: 5s                      # 健康检查超时时间
+  detailed: true                   # 是否返回详细信息（包含各组件状态）
+
+# ==================== JWT 配置 ====================
+jwt:
+  secret: ""                       # JWT 密钥（必须通过环境变量设置: GOFAST_JWT_SECRET）
+  expire: 7200                     # 访问令牌过期时间（秒，默认 2 小时）
+  refresh_expire: 604800           # 刷新令牌过期时间（秒，默认 7 天）
+  issuer: "gofast"                 # 签发者
+
+# ==================== 中间件配置 ====================
+middleware:
+  # CORS 跨域配置
+  cors:
+    enabled: true                  # 是否启用 CORS
+    allow_origins: ["*"]           # 允许的源
+    allow_methods:                 # 允许的 HTTP 方法
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+      - "OPTIONS"
+    allow_headers: ["*"]           # 允许的请求头
+    expose_headers: []             # 暴露的响应头
+    max_age: 86400                 # 预检请求缓存时间（秒）
+
+  # 限流配置（预留，当前不实现）
+  rate_limit:
+    enabled: false                 # 是否启用限流
+    requests: 100                  # 时间窗口内允许的请求数
+    window: 60s                    # 时间窗口大小
+
+  # 链路追踪配置
+  trace:
+    enabled: true                  # 是否启用链路追踪
+    header: "X-Trace-ID"           # 追踪 ID 的 Header 名称
+
+# ==================== 环境变量说明 ====================
+# 敏感信息建议通过环境变量设置，而不是直接写在配置文件中
+#
+# 数据库密码：
+#   export GOFAST_DATABASES_0_MASTER_PASSWORD="your_password"
+#   export GOFAST_DATABASES_0_SLAVES_0_PASSWORD="your_password"
+#   export GOFAST_DATABASES_1_MASTER_PASSWORD="your_password"
+#
+# Redis 密码：
+#   export GOFAST_REDIS_PASSWORD="your_password"
+#
+# JWT 密钥：
+#   export GOFAST_JWT_SECRET="your_secret_key"
+#
+# 其他配置：
+#   export GOFAST_SERVER_HTTP_PORT=9000
+#   export GOFAST_APP_ENV=prod

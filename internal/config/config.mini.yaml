@@ -1,0 +1,90 @@
+# GoFast 配置文件示例
+# 这是一个最小化的配置文件，包含了应用运行所需的基本配置
+
+# ==================== 应用基础配置 ====================
+app:
+  name: "gofast"           # 应用名称
+  env: "dev"               # 运行环境: dev, test, prod
+  debug: true              # 是否开启调试模式
+
+# ==================== 服务器配置 ====================
+server:
+  # HTTP 服务配置
+  http:
+    host: "0.0.0.0"              # 监听地址
+    port: 8080                    # 监听端口
+    read_timeout: 60s             # 读取超时时间
+    write_timeout: 60s            # 写入超时时间
+    max_header_bytes: 1048576     # 最大请求头大小 (1MB)
+
+  # gRPC 服务配置（可选）
+  grpc:
+    host: "0.0.0.0"               # 监听地址
+    port: 9090                    # 监听端口
+    max_recv_msg_size: 4194304    # 最大接收消息大小 (4MB)
+    max_send_msg_size: 4194304    # 最大发送消息大小 (4MB)
+
+# ==================== 日志配置 ====================
+logger:
+  level: "info"                    # 日志级别: debug, info, warn, error, fatal
+  format: "json"                   # 日志格式: json, console
+  output: "stdout"                 # 输出位置: stdout, stderr, file
+  enable_caller: true              # 是否显示调用位置（文件名和行号）
+  enable_stacktrace: false         # 是否显示堆栈信息（仅 error 级别以上）
+
+# ==================== 健康检查配置 ====================
+health:
+  timeout: 5s                      # 健康检查超时时间
+  detailed: true                   # 是否返回详细信息（包含各组件状态）
+
+# ==================== 中间件配置 ====================
+middleware:
+  # CORS 跨域配置
+  cors:
+    enabled: true                  # 是否启用 CORS
+    allow_origins: ["*"]           # 允许的源
+    allow_methods:                 # 允许的 HTTP 方法
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+      - "OPTIONS"
+    allow_headers: ["*"]           # 允许的请求头
+    expose_headers: []             # 暴露的响应头
+    max_age: 86400                 # 预检请求缓存时间（秒）
+
+  # 链路追踪配置
+  trace:
+    enabled: true                  # 是否启用链路追踪
+    header: "X-Trace-ID"           # 追踪 ID 的 Header 名称
+
+# ==================== 数据库配置（可选）====================
+# 如果不需要数据库，可以注释掉这部分
+# databases:
+#   - name: "main"
+#     type: "mysql"
+#     max_idle_conns: 10
+#     max_open_conns: 100
+#     master:
+#       host: "127.0.0.1"
+#       port: 3306
+#       username: "root"
+#       password: ""  # 建议通过环境变量设置: GOFAST_DATABASES_0_MASTER_PASSWORD
+#       database: "gofast"
+
+# ==================== Redis 配置（可选）====================
+# 如果不需要 Redis，可以注释掉这部分
+# redis:
+#   mode: "standalone"
+#   addr: "127.0.0.1:6379"
+#   password: ""  # 建议通过环境变量设置: GOFAST_REDIS_PASSWORD
+#   db: 0
+#   pool_size: 10
+
+# ==================== JWT 配置（可选）====================
+# 如果不需要 JWT 认证，可以注释掉这部分
+# jwt:
+#   secret: ""  # 必须通过环境变量设置: GOFAST_JWT_SECRET
+#   expire: 7200
+#   refresh_expire: 604800
+#   issuer: "gofast"

@@ -235,7 +235,7 @@ import (
 
 func main() {
     // 1. 加载配置
-    cfg, err := config.Load("./config/config.yaml")
+    cfg, err := config.Load("./config/config.mini.yaml")
     if err != nil {
         // 系统启动错误，直接退出
         fmt.Fprintf(os.Stderr, "[FATAL] %v\n",
@@ -737,7 +737,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *CreateUserRequest) er
 ```go
 // ✅ 推荐：系统启动错误立即退出
 func main() {
-    cfg, err := config.Load("config.yaml")
+    cfg, err := config.Load("config.mini.yaml")
     if err != nil {
         fmt.Fprintf(os.Stderr, "[FATAL] %v\n", errors.ErrConfigLoadFailed.WithError(err))
         os.Exit(1)
@@ -746,7 +746,7 @@ func main() {
 
 // ❌ 不推荐：系统错误继续运行
 func main() {
-    cfg, err := config.Load("config.yaml")
+    cfg, err := config.Load("config.mini.yaml")
     if err != nil {
         logger.Error("config load failed", "error", err)
         // 继续运行，可能导致更多错误
