@@ -160,18 +160,30 @@ redis:
 logger:
   level: "info"                    # 日志级别: debug, info, warn, error, fatal
   format: "json"                   # 日志格式: json, console
-  output: "stdout"                 # 输出位置: stdout, stderr, file
 
-  # 文件输出配置（当 output 为 file 时生效）
+  # 控制台输出配置
+  console:
+    enabled: true                  # 是否启用控制台输出
+    # 云原生环境：通常启用，供 sidecar 容器（Fluentd/Filebeat）收集
+
+  # 文件输出配置
   file:
+    enabled: true                  # 是否启用文件输出
     filename: "logs/app.log"       # 日志文件路径
     max_size: 100                  # 单个文件最大大小 (MB)
     max_backups: 10                # 保留旧文件的最大个数
     max_age: 30                    # 保留旧文件的最大天数
     compress: true                 # 是否压缩旧文件
+    # 本地备份：可选启用，用于调试或备份
 
   enable_caller: true              # 是否显示调用位置（文件名和行号）
   enable_stacktrace: false         # 是否显示堆栈信息（仅 error 级别以上）
+
+# 注意：console 和 file 可以同时启用
+# - 开发环境：console=true, file=false（只输出到控制台）
+# - 生产环境（Kubernetes）：console=true, file=false（输出到 stdout，由 sidecar 收集）
+# - 生产环境（传统部署）：console=false, file=true（只输出到文件）
+# - 调试环境：console=true, file=true（同时输出到控制台和文件）
 
 # ==================== 健康检查配置 ====================
 health:

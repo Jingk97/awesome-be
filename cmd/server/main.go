@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jingpc/gofast/internal/config"
+	"github.com/jingpc/gofast/internal/logger"
 )
 
 // main 是应用程序的入口点
@@ -36,12 +37,13 @@ func main() {
 
 	// ==================== 第二阶段：初始化日志 ====================
 	// 日志模块依赖配置，用于记录应用运行状态
-	// TODO: 实现日志模块 (internal/logger)
-	// logger := logger.New(cfg.Logger)
-	// defer logger.Sync() // 确保日志缓冲区刷新
+	appLogger, err := logger.New(cfg.Logger)
+	if err != nil {
+		log.Fatalf("[FATAL] Failed to initialize logger: %v", err)
+	}
+	defer appLogger.Sync() // 确保日志缓冲区刷新
 
-	// 临时使用标准库 log
-	log.Println("[INFO] Starting GoFast application...")
+	appLogger.Info("application started", "name", cfg.App.Name, "env", cfg.App.Env)
 
 	// ==================== 第三阶段：初始化健康检查管理器 ====================
 	// 健康检查管理器需要在基础设施模块之前初始化
@@ -77,18 +79,14 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// 创建 Gin 引擎
+	// 创建 Gin 引擎（不使用默认中间件）
 	router := gin.New()
 
-	// 注册中间件
-	// TODO: 实现自定义中间件 (pkg/middleware)
-	// router.Use(middleware.Recovery(logger))  // Panic 恢复
-	// router.Use(middleware.Logger(logger))    // 请求日志
-	// router.Use(middleware.CORS(cfg.CORS))    // 跨域
-	// router.Use(middleware.TraceID())         // 链路追踪
-
-	// 临时使用 Gin 默认中间件
-	router.Use(gin.Recovery())
+	// 注册自定义中间件（替换 Gin 默认中间件）
+	router.Use(logger.GinRecovery(appLogger)) // Panic 恢复
+	router.Use(logger.GinLogger(appLogger))   // 请求日志
+	// TODO: 实现其他中间件 (pkg/middleware)
+	// router.Use(middleware.CORS(cfg.Middleware.CORS))  // 跨域
 
 	// 注册健康检查路由
 	// TODO: 使用健康检查管理器的处理函数

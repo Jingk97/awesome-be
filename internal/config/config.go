@@ -144,16 +144,22 @@ type RedisConfig struct {
 
 // LoggerConfig 日志配置
 type LoggerConfig struct {
-	Level            string           `mapstructure:"level"`
-	Format           string           `mapstructure:"format"`
-	Output           string           `mapstructure:"output"`
-	File             LoggerFileConfig `mapstructure:"file"`
-	EnableCaller     bool             `mapstructure:"enable_caller"`
-	EnableStacktrace bool             `mapstructure:"enable_stacktrace"`
+	Level            string              `mapstructure:"level"`
+	Format           string              `mapstructure:"format"`
+	Console          LoggerConsoleConfig `mapstructure:"console"`
+	File             LoggerFileConfig    `mapstructure:"file"`
+	EnableCaller     bool                `mapstructure:"enable_caller"`
+	EnableStacktrace bool                `mapstructure:"enable_stacktrace"`
+}
+
+// LoggerConsoleConfig 控制台输出配置
+type LoggerConsoleConfig struct {
+	Enabled bool `mapstructure:"enabled"` // 是否启用控制台输出
 }
 
 // LoggerFileConfig 日志文件配置
 type LoggerFileConfig struct {
+	Enabled    bool   `mapstructure:"enabled"` // 是否启用文件输出
 	Filename   string `mapstructure:"filename"`
 	MaxSize    int    `mapstructure:"max_size"`
 	MaxBackups int    `mapstructure:"max_backups"`
@@ -299,7 +305,8 @@ func setDefaults(v *viper.Viper) {
 	// 日志配置
 	v.SetDefault("logger.level", "info")
 	v.SetDefault("logger.format", "json")
-	v.SetDefault("logger.output", "stdout")
+	v.SetDefault("logger.console.enabled", true) // 默认启用控制台输出
+	v.SetDefault("logger.file.enabled", false)   // 默认不启用文件输出
 	v.SetDefault("logger.enable_caller", true)
 	v.SetDefault("logger.enable_stacktrace", false)
 
