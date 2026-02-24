@@ -193,13 +193,20 @@ type MiddlewareConfig struct {
 }
 
 // CORSConfig CORS 配置
+//
+// 初级工程师学习要点：
+// - CORS (Cross-Origin Resource Sharing) 跨域资源共享
+// - 浏览器安全机制，限制跨域请求
+// - 通过 HTTP 响应头控制跨域行为
 type CORSConfig struct {
-	Enabled       bool     `mapstructure:"enabled"`
-	AllowOrigins  []string `mapstructure:"allow_origins"`
-	AllowMethods  []string `mapstructure:"allow_methods"`
-	AllowHeaders  []string `mapstructure:"allow_headers"`
-	ExposeHeaders []string `mapstructure:"expose_headers"`
-	MaxAge        int      `mapstructure:"max_age"`
+	Enabled          bool          `mapstructure:"enabled"`           // 是否启用 CORS
+	AllowOrigins     []string      `mapstructure:"allow_origins"`     // 允许的源列表
+	AllowMethods     []string      `mapstructure:"allow_methods"`     // 允许的 HTTP 方法
+	AllowHeaders     []string      `mapstructure:"allow_headers"`     // 允许的请求头
+	ExposeHeaders    []string      `mapstructure:"expose_headers"`    // 暴露给客户端的响应头
+	AllowCredentials bool          `mapstructure:"allow_credentials"` // 是否允许携带认证信息（Cookie）
+	MaxAge           time.Duration `mapstructure:"max_age"`           // 预检请求缓存时间
+	AllowWildcard    bool          `mapstructure:"allow_wildcard"`    // 是否允许通配符（如 https://*.example.com）
 }
 
 // RateLimitConfig 限流配置
@@ -328,7 +335,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("middleware.cors.allow_origins", []string{"*"})
 	v.SetDefault("middleware.cors.allow_methods", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	v.SetDefault("middleware.cors.allow_headers", []string{"*"})
-	v.SetDefault("middleware.cors.max_age", 86400)
+	v.SetDefault("middleware.cors.expose_headers", []string{})
+	v.SetDefault("middleware.cors.allow_credentials", false)
+	v.SetDefault("middleware.cors.max_age", "12h")
+	v.SetDefault("middleware.cors.allow_wildcard", false)
 
 	// 链路追踪配置
 	v.SetDefault("middleware.trace.enabled", true)
@@ -391,6 +401,11 @@ func validate(cfg *Config) error {
 		return err
 	}
 
+	// 验证 CORS 配置
+	if err := validateCORS(cfg.Middleware.CORS); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -447,6 +462,29 @@ func validateRedis(redis RedisConfig) error {
 	// 检查 mode 是否有效
 	if redis.Mode != "standalone" && redis.Mode != "sentinel" && redis.Mode != "cluster" {
 		return fmt.Errorf("redis.mode must be one of: standalone, sentinel, cluster")
+	}
+
+	return nil
+}
+
+// validateCORS 验证 CORS 配置
+//
+// 初级工程师学习要点：
+// - 当 AllowCredentials = true 时，AllowOrigins 不能包含 "*"
+// - 这是浏览器的安全限制，防止 CSRF 攻击
+func validateCORS(cors CORSConfig) error {
+	// 如果未启用，跳过验证
+	if !cors.Enabled {
+		return nil
+	}
+
+	// 检查 AllowCredentials 和 AllowOrigins 的组合
+	if cors.AllowCredentials {
+		for _, origin := range cors.AllowOrigins {
+			if origin == "*" {
+				return fmt.Errorf("middleware.cors: cannot use allow_credentials with wildcard origin '*'")
+			}
+		}
 	}
 
 	return nil

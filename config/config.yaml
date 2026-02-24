@@ -1,102 +1,81 @@
-# GoFast 配置文件示例
-# 这是一个最小化的配置文件，包含了应用运行所需的基本配置
+# GoFast 框架配置文件
+# 支持环境变量覆盖：GOFAST_SERVER_HTTP_PORT=8080
 
-# ==================== 应用基础配置 ====================
+# ==================== 应用配置 ====================
 app:
-  name: "go-fast-local"           # 应用名称
-  env: "dev"               # 运行环境: dev, test, prod
+  name: gofast
+  env: dev  # dev, test, prod
 
 # ==================== 服务器配置 ====================
 server:
-  # HTTP 服务配置
   http:
-    host: "0.0.0.0"              # 监听地址
-    port: 8080                    # 监听端口
-    read_timeout: 60s             # 读取超时时间
-    write_timeout: 60s            # 写入超时时间
-    max_header_bytes: 1048576     # 最大请求头大小 (1MB)
+    host: 0.0.0.0
+    port: 8080
+    read_timeout: 60s
+    write_timeout: 60s
+    max_header_bytes: 1048576
 
-  # gRPC 服务配置（可选）
   grpc:
-    host: "0.0.0.0"               # 监听地址
-    port: 9090                    # 监听端口
-    max_recv_msg_size: 4194304    # 最大接收消息大小 (4MB)
-    max_send_msg_size: 4194304    # 最大发送消息大小 (4MB)
+    host: 0.0.0.0
+    port: 9090
+    max_recv_msg_size: 4194304
+    max_send_msg_size: 4194304
 
 # ==================== 日志配置 ====================
 logger:
-  level: "info"                    # 日志级别: debug, info, warn, error, fatal
-  format: "json"                   # 日志格式: json, console
-
-  # 控制台输出配置
+  level: info  # debug, info, warn, error
+  format: json  # json, console
   console:
-    enabled: true                  # 是否启用控制台输出（适合 Kubernetes 环境）
-
-  # 文件输出配置
+    enabled: true
   file:
-    enabled: false                 # 是否启用文件输出（本地备份）
-    filename: "logs/app.log"       # 日志文件路径
-    max_size: 100                  # 单个文件最大大小 (MB)
-    max_backups: 10                # 保留旧文件的最大个数
-    max_age: 30                    # 保留旧文件的最大天数
-    compress: true                 # 是否压缩旧文件
-
-  enable_caller: true              # 是否显示调用位置（文件名和行号）
-  enable_stacktrace: false         # 是否显示堆栈信息（仅 error 级别以上）
+    enabled: false
+    filename: logs/gofast.log
+    max_size: 100
+    max_backups: 3
+    max_age: 7
+    compress: true
+  enable_caller: true
+  enable_stacktrace: false
 
 # ==================== 健康检查配置 ====================
 health:
-  timeout: 5s                      # 健康检查超时时间
-  detailed: true                   # 是否返回详细信息（包含各组件状态）
+  timeout: 5s
+  detailed: true
+
+# ==================== JWT 配置 ====================
+jwt:
+  secret: your-secret-key-change-in-production
+  expire: 7200  # 2 小时
+  refresh_expire: 604800  # 7 天
+  issuer: gofast
 
 # ==================== 中间件配置 ====================
 middleware:
   # CORS 跨域配置
   cors:
-    enabled: true                  # 是否启用 CORS
-    allow_origins: ["*"]           # 允许的源
-    allow_methods:                 # 允许的 HTTP 方法
+    enabled: true
+    allow_origins:
+      - "*"
+    allow_methods:
       - "GET"
       - "POST"
       - "PUT"
       - "DELETE"
       - "OPTIONS"
-    allow_headers: ["*"]           # 允许的请求头
-    expose_headers: []             # 暴露的响应头
-    max_age: 86400                 # 预检请求缓存时间（秒）
+    allow_headers:
+      - "*"
+    expose_headers: []
+    allow_credentials: false
+    max_age: 12h
+    allow_wildcard: false
+
+  # 限流配置
+  rate_limit:
+    enabled: false
+    requests: 100
+    window: 1m
 
   # 链路追踪配置
   trace:
-    enabled: true                  # 是否启用链路追踪
-    header: "X-Trace-ID"           # 追踪 ID 的 Header 名称
-
-# ==================== 数据库配置（可选）====================
-# 如果不需要数据库，可以注释掉这部分
-# databases:
-#   - name: "main"
-#     type: "mysql"
-#     max_idle_conns: 10
-#     max_open_conns: 100
-#     master:
-#       host: "127.0.0.1"
-#       port: 3306
-#       username: "root"
-#       password: ""  # 建议通过环境变量设置: GOFAST_DATABASES_0_MASTER_PASSWORD
-#       database: "gofast"
-
-# ==================== Redis 配置（可选）====================
-# 如果不需要 Redis，可以注释掉这部分
-# redis:
-#   mode: "standalone"
-#   addr: "127.0.0.1:6379"
-#   password: ""  # 建议通过环境变量设置: GOFAST_REDIS_PASSWORD
-#   db: 0
-#   pool_size: 10
-
-# ==================== JWT 配置（可选）====================
-# 如果不需要 JWT 认证，可以注释掉这部分
-# jwt:
-#   secret: ""  # 必须通过环境变量设置: GOFAST_JWT_SECRET
-#   expire: 7200
-#   refresh_expire: 604800
-#   issuer: "gofast"
+    enabled: true
+    header: X-Trace-ID

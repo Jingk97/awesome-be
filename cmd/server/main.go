@@ -15,6 +15,7 @@ import (
 	"github.com/jingpc/gofast/internal/health"
 	"github.com/jingpc/gofast/internal/logger"
 	"github.com/jingpc/gofast/internal/redis"
+	"github.com/jingpc/gofast/pkg/middleware"
 )
 
 // main 是应用程序的入口点
@@ -94,10 +95,12 @@ func main() {
 	router := gin.New()
 
 	// 注册自定义中间件（替换 Gin 默认中间件）
-	router.Use(logger.GinRecovery(appLogger)) // Panic 恢复
-	router.Use(logger.GinLogger(appLogger))   // 请求日志
+	router.Use(logger.GinRecovery(appLogger))        // Panic 恢复
+	router.Use(logger.GinLogger(appLogger))          // 请求日志
+	router.Use(middleware.CORS(cfg.Middleware.CORS)) // CORS 跨域
 	// TODO: 实现其他中间件 (pkg/middleware)
-	// router.Use(middleware.CORS(cfg.Middleware.CORS))  // 跨域
+	// router.Use(middleware.RateLimit(cfg.Middleware.RateLimit))  // 限流
+	// router.Use(middleware.Trace(cfg.Middleware.Trace))  // 链路追踪
 
 	// 注册健康检查路由
 	router.GET("/health/live", healthMgr.LivenessHandler)
