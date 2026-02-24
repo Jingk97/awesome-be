@@ -23,7 +23,7 @@ server:
 
 # ==================== 日志配置 ====================
 logger:
-  level: info  # debug, info, warn, error
+  level: debug  # debug, info, warn, error (dev 模式建议使用 debug)
   format: json  # json, console
   console:
     enabled: true

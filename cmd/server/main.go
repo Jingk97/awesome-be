@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,6 +14,7 @@ import (
 	"github.com/jingpc/gofast/internal/health"
 	"github.com/jingpc/gofast/internal/logger"
 	"github.com/jingpc/gofast/internal/redis"
+	"github.com/jingpc/gofast/internal/router"
 	"github.com/jingpc/gofast/pkg/errors"
 	"github.com/jingpc/gofast/pkg/middleware"
 	"github.com/jingpc/gofast/pkg/response"
@@ -41,8 +41,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Printf("[INFO] Starting %s application (env: %s)...", cfg.App.Name, cfg.App.Env)
-
 	// ==================== 第二阶段：初始化日志 ====================
 	// 日志模块依赖配置，用于记录应用运行状态
 	appLogger, err := logger.New(cfg.Logger)
@@ -52,7 +50,8 @@ func main() {
 	}
 	defer appLogger.Sync() // 确保日志缓冲区刷新
 
-	appLogger.Info("application started", "name", cfg.App.Name, "env", cfg.App.Env)
+	// 记录应用启动日志
+	appLogger.Info("application starting", "name", cfg.App.Name, "env", cfg.App.Env, "version", "1.0.0")
 
 	// ==================== 第三阶段：初始化健康检查管理器 ====================
 	// 健康检查管理器需要在基础设施模块之前初始化
@@ -92,55 +91,40 @@ func main() {
 	// 设置 Gin 模式（根据环境决定）
 	if cfg.App.Env == "dev" {
 		gin.SetMode(gin.DebugMode)
+		// 在 dev 模式下，将 Gin 的输出重定向到我们的日志系统
+		gin.DefaultWriter = logger.NewGinWriter(appLogger)
+		gin.DefaultErrorWriter = logger.NewGinWriter(appLogger)
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	// 创建 Gin 引擎（不使用默认中间件）
-	router := gin.New()
+	engine := gin.New()
 
 	// 注册自定义中间件（替换 Gin 默认中间件）
-	router.Use(response.Recovery(appLogger))         // Panic 恢复（统一错误响应）
-	router.Use(logger.GinLogger(appLogger))          // 请求日志
-	router.Use(middleware.CORS(cfg.Middleware.CORS)) // CORS 跨域
+	engine.Use(response.Recovery(appLogger))         // Panic 恢复（统一错误响应）
+	engine.Use(logger.GinLogger(appLogger))          // 请求日志
+	engine.Use(middleware.CORS(cfg.Middleware.CORS)) // CORS 跨域
 	// TODO: 实现其他中间件 (pkg/middleware)
-	// router.Use(middleware.RateLimit(cfg.Middleware.RateLimit))  // 限流
-	// router.Use(middleware.Trace(cfg.Middleware.Trace))  // 链路追踪
+	// engine.Use(middleware.RateLimit(cfg.Middleware.RateLimit))  // 限流
+	// engine.Use(middleware.Trace(cfg.Middleware.Trace))  // 链路追踪
 
-	// 注册健康检查路由
-	router.GET("/health/live", healthMgr.LivenessHandler)
-	router.GET("/health/ready", healthMgr.ReadinessHandler)
-
-	// 注册业务路由
-	// TODO: 实现路由注册函数
-	// registerRoutes(router, db, rdb, logger)
-
-	// 临时添加一个测试路由
-	router.GET("/ping", func(c *gin.Context) {
-		response.Success(c, gin.H{
-			"message": "pong",
-		})
-	})
-
-	// 测试错误响应
-	router.GET("/error", func(c *gin.Context) {
-		response.Error(c, errors.ErrUserNotFound.WithDetail("user id: 123"))
-	})
-
-	// 测试 panic 恢复
-	router.GET("/panic", func(c *gin.Context) {
-		panic("test panic")
+	// 注册所有路由（使用新的路由注册方式）
+	router.Setup(engine, &router.RouterConfig{
+		Logger: appLogger,
+		DB:     dbMgr,
+		Redis:  rdb,
 	})
 
 	// ==================== 第六阶段：启动 HTTP 服务器 ====================
 	// 使用优雅关闭机制
-	srv := startHTTPServer(router, cfg.Server.HTTP.Port, appLogger)
+	srv := startHTTPServer(engine, cfg.Server.HTTP.Port, appLogger)
 
 	// ==================== 第七阶段：等待退出信号 ====================
 	// 监听系统信号，实现优雅关闭
-	waitForShutdown(srv)
+	waitForShutdown(srv, appLogger)
 
-	log.Println("[INFO] GoFast application stopped")
+	appLogger.Info("GoFast application stopped")
 }
 
 // startHTTPServer 启动 HTTP 服务器
@@ -182,7 +166,7 @@ func startHTTPServer(router *gin.Engine, port int, log *logger.Logger) *gin.Engi
 // - 如何处理长连接（WebSocket、SSE）？
 // - 如何确保数据库事务完成？
 // - 如何通知上游服务（负载均衡器）？
-func waitForShutdown(router *gin.Engine) {
+func waitForShutdown(router *gin.Engine, log *logger.Logger) {
 	// 创建信号通道
 	quit := make(chan os.Signal, 1)
 
@@ -193,7 +177,7 @@ func waitForShutdown(router *gin.Engine) {
 
 	// 阻塞等待信号
 	sig := <-quit
-	log.Printf("[INFO] Received signal: %v, shutting down gracefully...", sig)
+	log.Info("received shutdown signal, shutting down gracefully", "signal", sig.String())
 
 	// 设置优雅关闭超时时间
 	// 这个时间应该：
@@ -214,9 +198,9 @@ func waitForShutdown(router *gin.Engine) {
 	<-ctx.Done()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		log.Println("[WARN] Shutdown timeout, forcing exit")
+		log.Warn("shutdown timeout, forcing exit")
 	} else {
-		log.Println("[INFO] Shutdown completed")
+		log.Info("shutdown completed")
 	}
 }
 
