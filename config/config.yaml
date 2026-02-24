@@ -3,7 +3,7 @@
 
 # ==================== 应用配置 ====================
 app:
-  name: gofast
+  name: gofast-local
   env: dev  # dev, test, prod
 
 # ==================== 服务器配置 ====================
@@ -28,7 +28,7 @@ logger:
   console:
     enabled: true
   file:
-    enabled: false
+    enabled: true
     filename: logs/gofast.log
     max_size: 100
     max_backups: 3

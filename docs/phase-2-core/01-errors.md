@@ -175,13 +175,65 @@ GoFast 采用分层的错误码体系：
 
 ## 错误处理原则
 
+### 核心原则：错误分类处理
+
+**系统错误 vs 业务错误**
+
+GoFast 框架将错误分为两大类：
+
+#### 1. 系统错误（1xxx）
+
+**特点：**
+- 发生在应用启动阶段或基础设施层
+- 导致应用无法正常运行
+- 需要立即退出或记录致命日志
+- 不返回给客户端（HTTP 响应）
+
+**处理方式：**
+- 启动阶段：使用 `fmt.Fprintf(os.Stderr, ...)` + `os.Exit(1)`
+- 运行时：使用 `logger.Fatal(...)` 记录日志并退出
+
+**使用场景：**
+- 配置加载失败
+- 数据库连接失败
+- Redis 连接失败
+- 端口绑定失败
+- 依赖服务不可用
+
+#### 2. 业务错误（4xxx, 5xxx）
+
+**特点：**
+- 发生在业务逻辑处理过程中
+- 不影响应用运行
+- 需要返回给客户端
+- 包含明确的错误码和消息
+
+**处理方式：**
+- Repository 层：返回原始错误
+- Service 层：包装错误，添加上下文
+- Handler 层：记录日志，转换为 HTTP 响应
+
+**使用场景：**
+- 参数验证失败
+- 认证授权失败
+- 资源不存在
+- 业务逻辑错误
+- 数据库查询失败（运行时）
+
 ### 核心原则：错误和日志解耦
 
 **错误传递不应该依赖日志系统**
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│ Handler 层                                           │
+│ Main 函数（启动阶段）                                │
+│ - 捕获系统错误                                       │
+│ - 记录致命日志并退出                                 │
+│ - 不返回 HTTP 响应                                   │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│ Handler 层（运行时）                                 │
 │ - 捕获所有错误                                       │
 │ - 记录错误日志（唯一记录日志的地方）                │
 │ - 转换为 HTTP 响应                                   │
@@ -208,34 +260,38 @@ GoFast 采用分层的错误码体系：
 
 ### 各层职责
 
-| 层级 | 错误处理职责 | 是否记录日志 |
-|------|-------------|-------------|
-| Repository | 返回原始错误 | ❌ 否 |
-| Service | 包装错误，添加上下文 | ❌ 否 |
-| Handler | 记录日志，返回响应 | ✅ 是 |
-| Middleware | 捕获 Panic，记录日志 | ✅ 是 |
+| 层级 | 错误处理职责 | 是否记录日志 | 错误类型 |
+|------|-------------|-------------|---------|
+| Main（启动） | 捕获系统错误，退出 | ✅ 是（Fatal） | 系统错误 |
+| Repository | 返回原始错误 | ❌ 否 | 原始错误 |
+| Service | 包装错误，添加上下文 | ❌ 否 | 业务错误 |
+| Handler | 记录日志，返回响应 | ✅ 是（Error/Warn） | 业务错误 |
+| Middleware | 捕获 Panic，记录日志 | ✅ 是（Error） | 系统错误 |
 
 ## 使用示例
 
 ### 系统启动错误处理
 
 ```go
-// cmd/http/main.go
+// cmd/server/main.go
 package main
 
 import (
     "context"
     "fmt"
     "os"
-    "gofast/pkg/config"
-    "gofast/pkg/database"
-    "gofast/pkg/logger"
-    "gofast/pkg/errors"
+
+    "github.com/jingpc/gofast/internal/config"
+    "github.com/jingpc/gofast/internal/database"
+    "github.com/jingpc/gofast/internal/logger"
+    "github.com/jingpc/gofast/internal/redis"
+    "github.com/jingpc/gofast/internal/health"
+    "github.com/jingpc/gofast/pkg/errors"
 )
 
 func main() {
     // 1. 加载配置
-    cfg, err := config.Load("./config/config.mini.yaml")
+    cfg, err := config.Load()
     if err != nil {
         // 系统启动错误，直接退出
         fmt.Fprintf(os.Stderr, "[FATAL] %v\n",
@@ -244,43 +300,41 @@ func main() {
     }
 
     // 2. 初始化日志
-    if err := logger.Init(cfg.Logger); err != nil {
+    appLogger, err := logger.New(cfg.Logger)
+    if err != nil {
         fmt.Fprintf(os.Stderr, "[FATAL] Failed to initialize logger: %v\n", err)
         os.Exit(1)
     }
+    defer appLogger.Sync()
 
-    // 3. 初始化数据库
-    db, err := database.New(cfg.Database)
+    // 3. 初始化健康检查管理器
+    healthMgr := health.NewManager(cfg.Health)
+
+    // 4. 初始化数据库
+    dbMgr, err := database.NewManager(cfg.Databases, appLogger, healthMgr)
     if err != nil {
-        logger.Fatal("failed to initialize database",
-            "error", errors.ErrDBConnectFailed.WithError(err),
-        )
+        // 使用 logger.Fatal 记录日志并退出
+        appLogger.Fatal("failed to initialize database",
+            "error", errors.ErrDBConnectFailed.WithError(err))
     }
-
-    // 4. 测试数据库连接
-    if err := db.Ping(context.Background()); err != nil {
-        logger.Fatal("failed to ping database",
-            "error", errors.ErrDBPingFailed.WithError(err),
-        )
-    }
+    defer dbMgr.Close()
 
     // 5. 初始化 Redis
-    cache, err := cache.New(cfg.Redis)
+    rdb, err := redis.New(cfg.Redis, healthMgr)
     if err != nil {
-        logger.Fatal("failed to initialize redis",
-            "error", errors.ErrRedisConnectFailed.WithError(err),
-        )
+        appLogger.Fatal("failed to initialize redis",
+            "error", errors.ErrRedisConnectFailed.WithError(err))
     }
+    defer rdb.Close()
 
     // 6. 启动 HTTP 服务
     addr := fmt.Sprintf("%s:%d", cfg.Server.HTTP.Host, cfg.Server.HTTP.Port)
-    logger.Info("starting HTTP server", "addr", addr)
+    appLogger.Info("starting HTTP server", "addr", addr)
 
     if err := router.Run(addr); err != nil {
-        logger.Fatal("failed to start HTTP server",
+        appLogger.Fatal("failed to start HTTP server",
             "error", errors.ErrServerStartFailed.WithError(err),
-            "addr", addr,
-        )
+            "addr", addr)
     }
 }
 ```
@@ -293,18 +347,20 @@ package repository
 
 import (
     "context"
-    "gofast/internal/model"
-    "gofast/pkg/database"
+
+    "gorm.io/gorm"
+
+    "github.com/jingpc/gofast/internal/model"
 )
 
 type UserRepository struct {
-    db database.Database
+    db *gorm.DB
 }
 
 // FindByID 根据 ID 查询用户
 func (r *UserRepository) FindByID(ctx context.Context, id int64) (*model.User, error) {
     var user model.User
-    err := r.db.Slave(ctx).First(&user, id).Error
+    err := r.db.WithContext(ctx).First(&user, id).Error
     if err != nil {
         // 只返回错误，不记录日志
         return nil, err
@@ -315,7 +371,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id int64) (*model.User, e
 // Create 创建用户
 func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
     // 只返回错误，不记录日志
-    return r.db.Master(ctx).Create(user).Error
+    return r.db.WithContext(ctx).Create(user).Error
 }
 ```
 
@@ -328,13 +384,16 @@ package service
 import (
     "context"
     "fmt"
-    "gofast/internal/model"
-    "gofast/internal/repository"
-    "gofast/pkg/errors"
+
+    "gorm.io/gorm"
+
+    "github.com/jingpc/gofast/internal/model"
+    "github.com/jingpc/gofast/internal/repository"
+    "github.com/jingpc/gofast/pkg/errors"
 )
 
 type UserService struct {
-    userRepo repository.UserRepository
+    userRepo *repository.UserRepository
 }
 
 // GetUser 获取用户
@@ -383,20 +442,23 @@ func (s *UserService) CreateUser(ctx context.Context, req *CreateUserRequest) (*
 ### Handler 层错误处理
 
 ```go
-// internal/handler/http/user_handler.go
-package http
+// internal/handler/user_handler.go
+package handler
 
 import (
     "strconv"
+
     "github.com/gin-gonic/gin"
-    "gofast/internal/service"
-    "gofast/pkg/errors"
-    "gofast/pkg/logger"
-    "gofast/pkg/response"
+    "go.uber.org/zap"
+
+    "github.com/jingpc/gofast/internal/service"
+    "github.com/jingpc/gofast/pkg/errors"
+    "github.com/jingpc/gofast/pkg/response"
 )
 
 type UserHandler struct {
     userService *service.UserService
+    logger      *logger.Logger
 }
 
 // GetUser 获取用户
@@ -412,15 +474,15 @@ func (h *UserHandler) GetUser(c *gin.Context) {
     user, err := h.userService.GetUser(c.Request.Context(), id)
     if err != nil {
         // 记录错误日志（唯一记录日志的地方）
-        logger.ErrorCtx(c.Request.Context(), "failed to get user",
-            "error", err,
-            "user_id", id,
-            "path", c.Request.URL.Path,
-            "method", c.Request.Method,
+        h.logger.Error("failed to get user",
+            zap.Error(err),
+            zap.Int64("user_id", id),
+            zap.String("path", c.Request.URL.Path),
+            zap.String("method", c.Request.Method),
         )
 
         // 转换为 HTTP 响应
-        response.Error(c, errors.FromError(err))
+        response.Error(c, err)
         return
     }
 
@@ -447,12 +509,12 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
     user, err := h.userService.CreateUser(c.Request.Context(), &req)
     if err != nil {
         // 记录错误日志
-        logger.ErrorCtx(c.Request.Context(), "failed to create user",
-            "error", err,
-            "username", req.Username,
+        h.logger.Error("failed to create user",
+            zap.Error(err),
+            zap.String("username", req.Username),
         )
 
-        response.Error(c, errors.FromError(err))
+        response.Error(c, err)
         return
     }
 
@@ -464,19 +526,21 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 ### Middleware 错误处理
 
 ```go
-// internal/middleware/recovery.go
-package middleware
+// pkg/response/middleware.go
+package response
 
 import (
     "runtime/debug"
+
     "github.com/gin-gonic/gin"
-    "gofast/pkg/errors"
-    "gofast/pkg/logger"
-    "gofast/pkg/response"
+    "go.uber.org/zap"
+
+    "github.com/jingpc/gofast/internal/logger"
+    "github.com/jingpc/gofast/pkg/errors"
 )
 
 // Recovery Panic 恢复中间件
-func Recovery() gin.HandlerFunc {
+func Recovery(log *logger.Logger) gin.HandlerFunc {
     return func(c *gin.Context) {
         defer func() {
             if err := recover(); err != nil {
@@ -484,16 +548,16 @@ func Recovery() gin.HandlerFunc {
                 stack := string(debug.Stack())
 
                 // 记录 Panic 日志
-                logger.ErrorCtx(c.Request.Context(), "panic recovered",
-                    "error", err,
-                    "stack", stack,
-                    "method", c.Request.Method,
-                    "path", c.Request.URL.Path,
-                    "ip", c.ClientIP(),
+                log.Error("panic recovered",
+                    zap.Any("error", err),
+                    zap.String("stack", stack),
+                    zap.String("method", c.Request.Method),
+                    zap.String("path", c.Request.URL.Path),
+                    zap.String("ip", c.ClientIP()),
                 )
 
                 // 返回统一错误响应
-                response.Error(c, errors.ErrPanic.WithDetail("internal server error"))
+                Error(c, errors.ErrPanic)
 
                 // 中断请求
                 c.Abort()
@@ -515,6 +579,8 @@ package errors
 
 import (
     "errors"
+    "strings"
+
     "gorm.io/gorm"
 )
 
@@ -549,7 +615,9 @@ func FromError(err error) *Error {
 
 func isRedisError(err error) bool {
     // 检查是否是 Redis 错误
-    return strings.Contains(err.Error(), "redis")
+    errStr := err.Error()
+    return strings.Contains(errStr, "redis") ||
+        strings.Contains(errStr, "connection refused")
 }
 ```
 
@@ -563,8 +631,10 @@ package response
 
 import (
     "net/http"
+
     "github.com/gin-gonic/gin"
-    "gofast/pkg/errors"
+
+    "github.com/jingpc/gofast/pkg/errors"
 )
 
 // Response 统一响应结构
@@ -586,18 +656,26 @@ func Success(c *gin.Context, data interface{}) {
 }
 
 // Error 错误响应
-func Error(c *gin.Context, err *errors.Error) {
-    c.JSON(err.Code.HTTPStatus(), Response{
-        Code:    int(err.Code),
-        Message: err.Message,
+func Error(c *gin.Context, err error) {
+    // 转换为业务错误
+    e := errors.FromError(err)
+    if e == nil {
+        e = errors.ErrInternalError
+    }
+
+    c.JSON(e.Code.HTTPStatus(), Response{
+        Code:    int(e.Code),
+        Message: e.Message,
         TraceID: getTraceID(c),
     })
 }
 
 // getTraceID 从 Context 获取 TraceID
 func getTraceID(c *gin.Context) string {
-    if traceID, ok := c.Request.Context().Value("trace_id").(string); ok {
-        return traceID
+    if traceID, exists := c.Get("trace_id"); exists {
+        if id, ok := traceID.(string); ok {
+            return id
+        }
     }
     return ""
 }

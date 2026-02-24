@@ -15,7 +15,9 @@ import (
 	"github.com/jingpc/gofast/internal/health"
 	"github.com/jingpc/gofast/internal/logger"
 	"github.com/jingpc/gofast/internal/redis"
+	"github.com/jingpc/gofast/pkg/errors"
 	"github.com/jingpc/gofast/pkg/middleware"
+	"github.com/jingpc/gofast/pkg/response"
 )
 
 // main 是应用程序的入口点
@@ -34,7 +36,9 @@ func main() {
 	// 配置是整个应用的基础，必须最先加载 ✅
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to load config: %v", err)
+		// 系统启动错误，直接退出
+		fmt.Fprintf(os.Stderr, "[FATAL] %v\n", errors.ErrConfigLoadFailed.WithError(err))
+		os.Exit(1)
 	}
 
 	log.Printf("[INFO] Starting %s application (env: %s)...", cfg.App.Name, cfg.App.Env)
@@ -43,7 +47,8 @@ func main() {
 	// 日志模块依赖配置，用于记录应用运行状态
 	appLogger, err := logger.New(cfg.Logger)
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to initialize logger: %v", err)
+		fmt.Fprintf(os.Stderr, "[FATAL] Failed to initialize logger: %v\n", err)
+		os.Exit(1)
 	}
 	defer appLogger.Sync() // 确保日志缓冲区刷新
 
@@ -65,7 +70,7 @@ func main() {
 		var err error
 		dbMgr, err = database.NewManager(cfg.Databases, appLogger, healthMgr)
 		if err != nil {
-			appLogger.Fatal("failed to initialize database", "error", err)
+			appLogger.Fatal("failed to initialize database", "error", errors.ErrDBConnectFailed.WithError(err))
 		}
 		defer dbMgr.Close()
 		appLogger.Info("database initialized", "count", len(cfg.Databases))
@@ -77,7 +82,7 @@ func main() {
 		var err error
 		rdb, err = redis.New(cfg.Redis, healthMgr)
 		if err != nil {
-			appLogger.Fatal("failed to initialize redis", "error", err)
+			appLogger.Fatal("failed to initialize redis", "error", errors.ErrRedisConnectFailed.WithError(err))
 		}
 		defer rdb.Close()
 		appLogger.Info("redis initialized", "mode", cfg.Redis.Mode)
@@ -95,7 +100,7 @@ func main() {
 	router := gin.New()
 
 	// 注册自定义中间件（替换 Gin 默认中间件）
-	router.Use(logger.GinRecovery(appLogger))        // Panic 恢复
+	router.Use(response.Recovery(appLogger))         // Panic 恢复（统一错误响应）
 	router.Use(logger.GinLogger(appLogger))          // 请求日志
 	router.Use(middleware.CORS(cfg.Middleware.CORS)) // CORS 跨域
 	// TODO: 实现其他中间件 (pkg/middleware)
@@ -112,14 +117,24 @@ func main() {
 
 	// 临时添加一个测试路由
 	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
+		response.Success(c, gin.H{
 			"message": "pong",
 		})
 	})
 
+	// 测试错误响应
+	router.GET("/error", func(c *gin.Context) {
+		response.Error(c, errors.ErrUserNotFound.WithDetail("user id: 123"))
+	})
+
+	// 测试 panic 恢复
+	router.GET("/panic", func(c *gin.Context) {
+		panic("test panic")
+	})
+
 	// ==================== 第六阶段：启动 HTTP 服务器 ====================
 	// 使用优雅关闭机制
-	srv := startHTTPServer(router, cfg.Server.HTTP.Port)
+	srv := startHTTPServer(router, cfg.Server.HTTP.Port, appLogger)
 
 	// ==================== 第七阶段：等待退出信号 ====================
 	// 监听系统信号，实现优雅关闭
@@ -137,14 +152,14 @@ func main() {
 // 初级工程师学习要点：
 // - 理解 goroutine 的使用场景
 // - 掌握 HTTP 服务器的启动方式
-func startHTTPServer(router *gin.Engine, port int) *gin.Engine {
+func startHTTPServer(router *gin.Engine, port int, log *logger.Logger) *gin.Engine {
 	addr := fmt.Sprintf(":%d", port)
-	log.Printf("[INFO] HTTP server listening on %s", addr)
+	log.Info("HTTP server starting", "addr", addr)
 
 	// 在 goroutine 中启动服务器
 	go func() {
 		if err := router.Run(addr); err != nil {
-			log.Fatalf("[FATAL] Failed to start HTTP server: %v", err)
+			log.Fatal("failed to start HTTP server", "error", errors.ErrServerStartFailed.WithError(err))
 		}
 	}()
 
