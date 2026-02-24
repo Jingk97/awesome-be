@@ -125,8 +125,12 @@ type HealthCheckConfig struct {
 
 // RedisConfig Redis 配置
 type RedisConfig struct {
+	Name               string            `mapstructure:"name"`
 	Mode               string            `mapstructure:"mode"`
 	Addr               string            `mapstructure:"addr"`
+	MasterName         string            `mapstructure:"master_name"`    // 哨兵模式：主节点名称
+	SentinelAddrs      []string          `mapstructure:"sentinel_addrs"` // 哨兵模式：哨兵地址列表
+	ClusterAddrs       []string          `mapstructure:"cluster_addrs"`  // 集群模式：集群节点地址列表
 	Password           string            `mapstructure:"password"`
 	DB                 int               `mapstructure:"db"`
 	PoolSize           int               `mapstructure:"pool_size"`
@@ -377,10 +381,73 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("server.http.port must be between 1 and 65535")
 	}
 
-	// TODO: 添加更多配置验证
-	// - 数据库配置验证
-	// - Redis 配置验证
-	// - JWT 密钥验证
+	// 验证数据库配置
+	if err := validateDatabases(cfg.Databases); err != nil {
+		return err
+	}
+
+	// 验证 Redis 配置
+	if err := validateRedis(cfg.Redis); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateDatabases 验证数据库配置
+//
+// 初级工程师学习要点：
+// - 检查每个数据库实例的 name 字段是否存在
+// - 检查 name 是否重复（使用 map 记录已出现的名称）
+func validateDatabases(databases []DatabaseConfig) error {
+	if len(databases) == 0 {
+		return nil // 没有配置数据库不是错误
+	}
+
+	// 使用 map 检查 name 重复
+	names := make(map[string]bool)
+
+	for i, db := range databases {
+		// 检查 name 是否为空
+		if db.Name == "" {
+			return fmt.Errorf("databases[%d].name is required", i)
+		}
+
+		// 检查 name 是否重复
+		if names[db.Name] {
+			return fmt.Errorf("databases[%d].name '%s' is duplicated", i, db.Name)
+		}
+		names[db.Name] = true
+
+		// 检查数据库类型
+		if db.Type != "mysql" && db.Type != "postgres" && db.Type != "sqlite" {
+			return fmt.Errorf("databases[%d].type must be one of: mysql, postgres, sqlite", i)
+		}
+	}
+
+	return nil
+}
+
+// validateRedis 验证 Redis 配置
+//
+// 初级工程师学习要点：
+// - Redis 配置是单个实例，不是数组
+// - 如果配置了 Redis（mode 不为空），则 name 必填
+func validateRedis(redis RedisConfig) error {
+	// 如果没有配置 Redis，跳过验证
+	if redis.Mode == "" {
+		return nil
+	}
+
+	// 检查 name 是否为空
+	if redis.Name == "" {
+		return fmt.Errorf("redis.name is required")
+	}
+
+	// 检查 mode 是否有效
+	if redis.Mode != "standalone" && redis.Mode != "sentinel" && redis.Mode != "cluster" {
+		return fmt.Errorf("redis.mode must be one of: standalone, sentinel, cluster")
+	}
 
 	return nil
 }

@@ -11,7 +11,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jingpc/gofast/internal/config"
+	"github.com/jingpc/gofast/internal/database"
+	"github.com/jingpc/gofast/internal/health"
 	"github.com/jingpc/gofast/internal/logger"
+	"github.com/jingpc/gofast/internal/redis"
 )
 
 // main 是应用程序的入口点
@@ -27,7 +30,7 @@ import (
 // - 学习优雅关闭的重要性（避免数据丢失）
 func main() {
 	// ==================== 第一阶段：初始化配置 ====================
-	// 配置是整个应用的基础，必须最先加载
+	// 配置是整个应用的基础，必须最先加载 ✅
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("[FATAL] Failed to load config: %v", err)
@@ -48,28 +51,36 @@ func main() {
 	// ==================== 第三阶段：初始化健康检查管理器 ====================
 	// 健康检查管理器需要在基础设施模块之前初始化
 	// 这样数据库、Redis 等模块可以在初始化时自动注册健康检查
-	// TODO: 实现健康检查模块 (internal/health)
-	// healthMgr := health.NewManager()
+	healthMgr := health.NewManager(cfg.Health)
+	appLogger.Info("health check manager initialized")
 
 	// ==================== 第四阶段：初始化基础设施 ====================
 	// 基础设施模块包括：数据库、Redis、消息队列等
 	// 这些模块会自动注册到健康检查管理器
 
-	// 4.1 初始化数据库
-	// TODO: 实现数据库模块 (internal/database)
-	// db, err := database.New(cfg.Database, healthMgr)
-	// if err != nil {
-	//     logger.Fatal("Failed to initialize database", zap.Error(err))
-	// }
-	// defer db.Close()
+	// 4.1 初始化数据库（如果配置了）
+	var dbMgr *database.Manager
+	if len(cfg.Databases) > 0 {
+		var err error
+		dbMgr, err = database.NewManager(cfg.Databases, appLogger, healthMgr)
+		if err != nil {
+			appLogger.Fatal("failed to initialize database", "error", err)
+		}
+		defer dbMgr.Close()
+		appLogger.Info("database initialized", "count", len(cfg.Databases))
+	}
 
-	// 4.2 初始化 Redis
-	// TODO: 实现 Redis 模块 (internal/redis)
-	// rdb, err := redis.New(cfg.Redis, healthMgr)
-	// if err != nil {
-	//     logger.Fatal("Failed to initialize redis", zap.Error(err))
-	// }
-	// defer rdb.Close()
+	// 4.2 初始化 Redis（如果配置了）
+	var rdb *redis.Redis
+	if cfg.Redis.Mode != "" {
+		var err error
+		rdb, err = redis.New(cfg.Redis, healthMgr)
+		if err != nil {
+			appLogger.Fatal("failed to initialize redis", "error", err)
+		}
+		defer rdb.Close()
+		appLogger.Info("redis initialized", "mode", cfg.Redis.Mode)
+	}
 
 	// ==================== 第五阶段：初始化 HTTP 服务器 ====================
 	// 设置 Gin 模式（根据环境决定）
@@ -89,25 +100,8 @@ func main() {
 	// router.Use(middleware.CORS(cfg.Middleware.CORS))  // 跨域
 
 	// 注册健康检查路由
-	// TODO: 使用健康检查管理器的处理函数
-	// router.GET("/health/live", healthMgr.LivenessHandler)
-	// router.GET("/health/ready", healthMgr.ReadinessHandler)
-
-	// 临时实现简单的健康检查
-	router.GET("/health/live", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status":    "ok",
-			"timestamp": time.Now().Format(time.RFC3339),
-		})
-	})
-
-	router.GET("/health/ready", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status":    "ok",
-			"timestamp": time.Now().Format(time.RFC3339),
-			"checks":    gin.H{},
-		})
-	})
+	router.GET("/health/live", healthMgr.LivenessHandler)
+	router.GET("/health/ready", healthMgr.ReadinessHandler)
 
 	// 注册业务路由
 	// TODO: 实现路由注册函数
