@@ -2,6 +2,19 @@
 
 基于 Gin 的企业级 Web 应用框架，提供完整的基础设施和最佳实践。
 
+## 架构速读（快速了解项目）
+
+- 定位：提供可复用的 Web 服务骨架，内置配置、日志、错误处理、统一响应、健康检查、数据库与 Redis 基础设施。
+- 入口与启动流程：`cmd/server/main.go` 以“七阶段”启动顺序组织（配置 → 日志 → 健康管理器 → 基础设施 → Gin/中间件 → 路由 → HTTP 启动与优雅退出）。
+- 请求流与分层：`router.Setup` 统一注册路由；示例业务采用 `Handler -> Service -> (Repository/DB/Redis)` 的分层思路。Handler 负责记录日志并返回统一响应，Service 仅返回错误，不直接记录日志。
+- 依赖注入：`internal/router.RouterConfig` 通过构造函数传递 Logger/DB/Redis，避免全局变量，便于测试与解耦。
+- 配置体系：`internal/config` 基于 Viper，支持默认值、`config/config.yaml` 配置文件、环境变量（前缀 `GOFAST_`）与命令行参数（`--config`/`--env`/`--port`）覆盖。
+- 日志与追踪：`internal/logger` 封装 Zap；Gin 请求日志与 GORM SQL 日志统一进入日志系统；`X-Trace-ID` 写入 Context，并在响应 `trace_id` 字段返回。
+- 健康检查：`/health/live` 与 `/health/ready` 提供 K8s 探针接口；当前 Handler 直接检测 DB/Redis。`internal/health.Manager` 支持组件注册与并发检查，DB/Redis 已注册检查器，可用于后续统一健康路由输出。
+- 数据库：`internal/database` 基于 GORM，支持主从读写分离、轮询读取、连接池配置与健康检查。
+- Redis：`internal/redis` 基于 go-redis UniversalClient，支持 standalone/sentinel/cluster 模式与健康检查，并提供常用操作封装。
+- 错误与响应：`pkg/errors` 提供错误码体系与错误转换；`pkg/response` 统一响应结构并自动映射 HTTP 状态码。
+
 ## 快速开始
 
 ### 1. 安装依赖
@@ -41,71 +54,18 @@ gofast/
 │   ├── logger/           # 日志模块
 │   ├── database/         # 数据库模块
 │   ├── redis/            # Redis 模块
-│   ├── errors/           # 错误处理模块
-│   └── health/           # 健康检查模块
+│   ├── health/           # 健康检查模块
+│   ├── router/           # 路由注册
+│   ├── handler/          # HTTP 处理层
+│   └── service/          # 业务逻辑层
 ├── pkg/                   # 公共包（可对外暴露）
+│   ├── errors/           # 统一错误码与错误转换
 │   ├── response/         # 统一响应格式
 │   └── middleware/       # 中间件
-├── docs/                  # 文档
-│   ├── architecture/     # 架构设计文档
-│   ├── phase-1-infrastructure/  # 基础设施模块文档
-│   └── phase-2-core/     # 核心功能模块文档
+├── config/                # 配置文件
 ├── go.mod                 # Go 模块定义
 └── README.md             # 项目说明
 ```
-
-## 开发流程
-
-### 初级工程师（0-2 年）
-
-**学习目标**：
-- 理解项目结构和代码规范
-- 掌握基础的 Go 语法和标准库
-- 学会使用 Git 进行版本控制
-
-**任务类型**：
-- 实现简单的 CRUD 接口
-- 修复明确的 Bug
-- 编写单元测试
-
-**代码审查关注点**：
-- 代码规范（命名、格式、注释）
-- 错误处理是否完整
-- 是否有资源泄漏
-
-### 中级工程师（2-5 年）
-
-**学习目标**：
-- 理解分层架构和依赖注入
-- 掌握并发编程和性能优化
-- 学会设计可测试的代码
-
-**任务类型**：
-- 实现复杂的业务逻辑
-- 优化性能瓶颈
-- 设计新模块的接口
-
-**代码审查关注点**：
-- 架构设计是否合理
-- 是否有并发安全问题
-- 代码可测试性
-
-### 高级工程师（5+ 年）
-
-**学习目标**：
-- 掌握系统设计和架构模式
-- 理解分布式系统的挑战
-- 能够指导团队技术方向
-
-**任务类型**：
-- 设计系统架构
-- 解决复杂的技术难题
-- 制定技术规范
-
-**代码审查关注点**：
-- 系统可扩展性
-- 可维护性和可观测性
-- 是否遵循最佳实践
 
 ## 开发规范
 
@@ -137,20 +97,20 @@ gofast/
 2. **提交信息**
    ```
    类型(范围): 简短描述
-
+   
    详细描述（可选）
-
+   
    关联 Issue（可选）
    ```
 
    示例：
    ```
    feat(auth): 实现用户登录功能
-
+   
    - 添加 JWT 认证
    - 实现登录接口
    - 添加单元测试
-
+   
    Closes #123
    ```
 
@@ -171,42 +131,6 @@ gofast/
 // TODO(P0): 带优先级（P0=紧急, P1=重要, P2=普通）
 // TODO(2024-03-01): 带截止日期
 ```
-
-## 当前开发状态
-
-### ✅ 已完成
-- [x] 项目结构搭建
-- [x] 主启动流程框架
-- [x] 文档设计
-
-### 🚧 进行中
-- [ ] 配置模块实现
-- [ ] 日志模块实现
-- [ ] 健康检查模块实现
-
-### 📋 待开发
-- [ ] 数据库模块
-- [ ] Redis 模块
-- [ ] 错误处理模块
-- [ ] 中间件实现
-- [ ] 业务逻辑层
-
-## 学习资源
-
-### 官方文档
-- [Go 官方文档](https://go.dev/doc/)
-- [Gin 框架文档](https://gin-gonic.com/docs/)
-- [GORM 文档](https://gorm.io/docs/)
-
-### 推荐书籍
-- 《Go 程序设计语言》- 入门必读
-- 《Go 语言实战》- 进阶学习
-- 《Go 并发编程实战》- 并发编程
-
-### 架构设计
-- 《Clean Architecture》- 架构设计
-- 《Designing Data-Intensive Applications》- 系统设计
-- 《微服务设计》- 微服务架构
 
 ## 常见问题
 
@@ -232,14 +156,3 @@ func TestUserService_Create(t *testing.T) {
 }
 ```
 
-## 贡献指南
-
-1. Fork 项目
-2. 创建功能分支
-3. 提交代码
-4. 创建 Pull Request
-5. 等待代码审查
-
-## 许可证
-
-MIT License
