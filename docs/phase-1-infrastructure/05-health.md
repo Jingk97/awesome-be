@@ -201,7 +201,7 @@ func New(cfg *Config, healthMgr *health.Manager) (*Redis, error) {
 ## 6. 配置项
 
 ```yaml
-# config.yaml
+# config.mini.yaml
 health:
   # 健康检查超时时间
   timeout: 5s

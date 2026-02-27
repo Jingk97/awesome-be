@@ -53,7 +53,7 @@ export GOFAST_SERVER_HTTP_PORT=8081
 ### 完整配置示例
 
 ```yaml
-# config.yaml - 完整配置文件示例
+# config.mini.yaml - 完整配置文件示例
 
 # ==================== 应用基础配置 ====================
 app:
@@ -375,8 +375,8 @@ GOFAST_JWT_SECRET=real-secret-key
 
 ```bash
 # 指定配置文件路径
-./gofast --config=/path/to/config.yaml
-./gofast -c /path/to/config.yaml
+./gofast --config=/path/to/config.mini.yaml
+./gofast -c /path/to/config.mini.yaml
 
 # 指定运行环境
 ./gofast --env=prod
@@ -481,7 +481,7 @@ import (
 
 func main() {
     // 1. 加载配置（启动时调用一次）
-    cfg, err := config.Load("./config/config.yaml")
+    cfg, err := config.Load("./config/config.mini.yaml")
     if err != nil {
         log.Fatal("Failed to load config:", err)
     }
@@ -514,7 +514,7 @@ import (
 
 func main() {
     // 加载配置
-    cfg, _ := config.Load("./config/config.yaml")
+    cfg, _ := config.Load("./config/config.mini.yaml")
 
     // 初始化日志
     log := logger.New(cfg.Logger)
@@ -546,7 +546,7 @@ import (
 )
 
 func main() {
-    cfg, _ := config.Load("./config/config.yaml")
+    cfg, _ := config.Load("./config/config.mini.yaml")
 
     // 获取指定名称的数据库配置
     mainDB := cfg.GetDatabase("main")
@@ -580,7 +580,7 @@ func main() {
 ### 验证失败示例
 
 ```bash
-$ ./gofast -c config.yaml
+$ ./gofast -c config.mini.yaml
 
 [FATAL] Config validation failed:
   - databases[0].master.password is required
@@ -613,14 +613,14 @@ database:
 ```bash
 # 项目结构
 config/
-├── config.yaml          # 基础配置（开发环境）
+├── config.mini.yaml          # 基础配置（开发环境）
 ├── config.dev.yaml      # 开发环境
 ├── config.test.yaml     # 测试环境
 ├── config.prod.yaml     # 生产环境
 └── config.example.yaml  # 配置模板（提交到 Git）
 
 # .gitignore
-config/config.yaml
+config/config.mini.yaml
 config/config.*.yaml
 !config/config.example.yaml
 ```
@@ -673,7 +673,7 @@ func LoadConfig() *Config {
 
 **A**: 检查配置文件路径，或使用 `--config` 参数明确指定：
 ```bash
-./gofast --config=/absolute/path/to/config.yaml
+./gofast --config=/absolute/path/to/config.mini.yaml
 ```
 
 ### Q2: 环境变量没有生效？

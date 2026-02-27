@@ -49,7 +49,7 @@ git clone https://github.com/yourusername/gofast.git
 go mod download
 
 # 复制配置文件
-cp config/config.example.yaml config/config.yaml
+cp config/config.example.yaml config/config.mini.yaml
 
 # 运行项目
 go run cmd/http/main.go
