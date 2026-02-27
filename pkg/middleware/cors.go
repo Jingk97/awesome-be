@@ -12,7 +12,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"github.com/jingpc/gofast/internal/config"
+	"github.com/jingpc/awesome-be/internal/config"
 )
 
 // CORS 返回 CORS 中间件

@@ -16,7 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/jingpc/gofast/pkg/errors"
+	"github.com/jingpc/awesome-be/pkg/errors"
 )
 
 // Response 统一响应结构

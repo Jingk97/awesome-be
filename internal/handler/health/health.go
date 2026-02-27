@@ -13,10 +13,10 @@ package health
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/jingpc/gofast/internal/database"
-	"github.com/jingpc/gofast/internal/logger"
-	"github.com/jingpc/gofast/internal/redis"
-	"github.com/jingpc/gofast/pkg/response"
+	"github.com/jingpc/awesome-be/internal/database"
+	"github.com/jingpc/awesome-be/internal/logger"
+	"github.com/jingpc/awesome-be/internal/redis"
+	"github.com/jingpc/awesome-be/pkg/response"
 )
 
 // Handler 健康检查处理器

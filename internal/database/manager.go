@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jingpc/gofast/internal/config"
-	"github.com/jingpc/gofast/internal/health"
-	"github.com/jingpc/gofast/internal/logger"
+	"github.com/jingpc/awesome-be/internal/config"
+	"github.com/jingpc/awesome-be/internal/health"
+	"github.com/jingpc/awesome-be/internal/logger"
 )
 
 // Manager 数据库管理器

@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/jingpc/gofast/internal/logger"
-	"github.com/jingpc/gofast/pkg/errors"
+	"github.com/jingpc/awesome-be/internal/logger"
+	"github.com/jingpc/awesome-be/pkg/errors"
 )
 
 // Recovery Panic 恢复中间件

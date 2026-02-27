@@ -3,7 +3,7 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/jingpc/gofast/internal/handler/health"
+	"github.com/jingpc/awesome-be/internal/handler/health"
 )
 
 // SetupHealthRoutes 设置健康检查路由

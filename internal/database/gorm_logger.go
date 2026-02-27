@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
-	"github.com/jingpc/gofast/internal/logger"
+	"github.com/jingpc/awesome-be/internal/logger"
 )
 
 // GormLogger GORM 日志适配器

@@ -9,28 +9,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jingpc/gofast/internal/config"
-	"github.com/jingpc/gofast/internal/database"
-	"github.com/jingpc/gofast/internal/health"
-	"github.com/jingpc/gofast/internal/logger"
-	"github.com/jingpc/gofast/internal/redis"
-	"github.com/jingpc/gofast/internal/router"
-	"github.com/jingpc/gofast/pkg/errors"
-	"github.com/jingpc/gofast/pkg/middleware"
-	"github.com/jingpc/gofast/pkg/response"
+	"github.com/jingpc/awesome-be/internal/config"
+	"github.com/jingpc/awesome-be/internal/database"
+	"github.com/jingpc/awesome-be/internal/health"
+	"github.com/jingpc/awesome-be/internal/logger"
+	"github.com/jingpc/awesome-be/internal/redis"
+	"github.com/jingpc/awesome-be/internal/router"
+	"github.com/jingpc/awesome-be/pkg/errors"
+	"github.com/jingpc/awesome-be/pkg/middleware"
+	"github.com/jingpc/awesome-be/pkg/response"
 )
 
-// main 是应用程序的入口点
-//
-// 架构思路：
-// 1. 按照依赖顺序初始化各个模块（配置 -> 日志 -> 基础设施 -> 业务逻辑）
-// 2. 使用优雅关闭机制，确保服务停止时正确释放资源
-// 3. 统一的错误处理，区分系统启动错误和运行时错误
-//
-// 初级工程师学习要点：
-// - 理解应用启动的生命周期
-// - 掌握依赖注入的思想（先初始化被依赖的模块）
-// - 学习优雅关闭的重要性（避免数据丢失）
 func main() {
 	// ==================== 第一阶段：初始化配置 ====================
 	// 配置是整个应用的基础，必须最先加载 ✅
@@ -127,15 +116,6 @@ func main() {
 	appLogger.Info("GoFast application stopped")
 }
 
-// startHTTPServer 启动 HTTP 服务器
-//
-// 架构思路：
-// - 使用 goroutine 启动服务器，避免阻塞主流程
-// - 返回 *http.Server 用于后续的优雅关闭
-//
-// 初级工程师学习要点：
-// - 理解 goroutine 的使用场景
-// - 掌握 HTTP 服务器的启动方式
 func startHTTPServer(router *gin.Engine, port int, log *logger.Logger) *gin.Engine {
 	addr := fmt.Sprintf(":%d", port)
 	log.Info("HTTP server starting", "addr", addr)
@@ -150,22 +130,6 @@ func startHTTPServer(router *gin.Engine, port int, log *logger.Logger) *gin.Engi
 	return router
 }
 
-// waitForShutdown 等待退出信号并执行优雅关闭
-//
-// 架构思路：
-// 1. 监听 SIGINT (Ctrl+C) 和 SIGTERM (kill) 信号
-// 2. 收到信号后，给服务器一定时间完成正在处理的请求
-// 3. 超时后强制关闭
-//
-// 初级工程师学习要点：
-// - 理解信号处理的重要性（避免数据丢失）
-// - 掌握 context.WithTimeout 的使用
-// - 学习优雅关闭的最佳实践
-//
-// 高级工程师思考：
-// - 如何处理长连接（WebSocket、SSE）？
-// - 如何确保数据库事务完成？
-// - 如何通知上游服务（负载均衡器）？
 func waitForShutdown(router *gin.Engine, log *logger.Logger) {
 	// 创建信号通道
 	quit := make(chan os.Signal, 1)
@@ -203,44 +167,3 @@ func waitForShutdown(router *gin.Engine, log *logger.Logger) {
 		log.Info("shutdown completed")
 	}
 }
-
-// ==================== 工程协作说明 ====================
-//
-// 【TODO 标记规范】
-// 在团队协作中，使用 TODO 标记未完成的功能：
-//
-// 1. 简单 TODO：
-//    // TODO: 实现用户登录功能
-//
-// 2. 带责任人的 TODO：
-//    // TODO(张三): 实现用户登录功能
-//
-// 3. 带优先级的 TODO：
-//    // TODO(P0): 修复数据库连接泄漏问题
-//    // TODO(P1): 优化查询性能
-//    // TODO(P2): 添加缓存
-//
-// 4. 带截止日期的 TODO：
-//    // TODO(2024-03-01): 升级到 Go 1.22
-//
-// 【注释规范】
-// 1. 包注释：每个包都应该有包注释，说明包的用途
-// 2. 函数注释：公开函数必须有注释，说明功能、参数、返回值
-// 3. 复杂逻辑注释：复杂的业务逻辑应该添加注释解释
-// 4. 架构思路注释：关键的架构决策应该记录在注释中
-//
-// 【代码审查要点】
-// 初级 -> 中级：
-// - 代码规范：命名、格式、注释
-// - 错误处理：是否正确处理所有错误
-// - 资源管理：是否正确关闭文件、连接等资源
-//
-// 中级 -> 高级：
-// - 架构设计：模块划分是否合理
-// - 性能优化：是否有性能瓶颈
-// - 并发安全：是否有竞态条件
-//
-// 高级 -> 资深：
-// - 系统设计：整体架构是否可扩展
-// - 可维护性：代码是否易于维护和测试
-// - 最佳实践：是否遵循行业最佳实践

@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/jingpc/gofast/internal/config"
+	"github.com/jingpc/awesome-be/internal/config"
 )
 
 // contextKey 是 context 中存储值的键类型

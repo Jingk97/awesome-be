@@ -17,10 +17,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/jingpc/gofast/internal/logger"
-	"github.com/jingpc/gofast/internal/service/example"
-	"github.com/jingpc/gofast/pkg/errors"
-	"github.com/jingpc/gofast/pkg/response"
+	"github.com/jingpc/awesome-be/internal/logger"
+	"github.com/jingpc/awesome-be/internal/service/example"
+	"github.com/jingpc/awesome-be/pkg/errors"
+	"github.com/jingpc/awesome-be/pkg/response"
 )
 
 // Handler 示例处理器

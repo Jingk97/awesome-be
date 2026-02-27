@@ -15,8 +15,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/jingpc/gofast/internal/config"
-	"github.com/jingpc/gofast/internal/health"
+	"github.com/jingpc/awesome-be/internal/config"
+	"github.com/jingpc/awesome-be/internal/health"
 )
 
 // Redis Redis 客户端

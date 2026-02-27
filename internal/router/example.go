@@ -3,8 +3,8 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	exampleHandler "github.com/jingpc/gofast/internal/handler/example"
-	exampleService "github.com/jingpc/gofast/internal/service/example"
+	exampleHandler "github.com/jingpc/awesome-be/internal/handler/example"
+	exampleService "github.com/jingpc/awesome-be/internal/service/example"
 )
 
 // SetupExampleRoutes 设置示例路由

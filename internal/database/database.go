@@ -18,9 +18,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/jingpc/gofast/internal/config"
-	"github.com/jingpc/gofast/internal/health"
-	"github.com/jingpc/gofast/internal/logger"
+	"github.com/jingpc/awesome-be/internal/config"
+	"github.com/jingpc/awesome-be/internal/health"
+	"github.com/jingpc/awesome-be/internal/logger"
 )
 
 // Database 数据库实例

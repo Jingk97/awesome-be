@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jingpc/gofast/internal/config"
+	"github.com/jingpc/awesome-be/internal/config"
 )
 
 // HealthChecker 定义健康检查器接口

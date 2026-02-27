@@ -13,9 +13,9 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/jingpc/gofast/internal/database"
-	"github.com/jingpc/gofast/internal/logger"
-	"github.com/jingpc/gofast/internal/redis"
+	"github.com/jingpc/awesome-be/internal/database"
+	"github.com/jingpc/awesome-be/internal/logger"
+	"github.com/jingpc/awesome-be/internal/redis"
 )
 
 // RouterConfig 路由配置
