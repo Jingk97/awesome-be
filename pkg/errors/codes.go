@@ -41,9 +41,10 @@ const (
 	CodeInvalidFormat Code = 4003 // 格式错误
 
 	// 认证错误 (401x)
-	CodeUnauthorized Code = 4011 // 未认证
-	CodeTokenExpired Code = 4012 // Token 过期
-	CodeTokenInvalid Code = 4013 // Token 无效
+	CodeAuthError    Code = 4011 // 认证失败
+	CodeUnauthorized Code = 4012 // 未认证
+	CodeTokenExpired Code = 4013 // Token 过期
+	CodeTokenInvalid Code = 4014 // Token 无效
 
 	// 权限错误 (403x)
 	CodeForbidden    Code = 4031 // 无权限
@@ -109,6 +110,7 @@ var messages = map[Code]string{
 	CodeInvalidParams:     "参数错误",
 	CodeMissingParams:     "缺少参数",
 	CodeInvalidFormat:     "格式错误",
+	CodeAuthError:         "认证失败",
 	CodeUnauthorized:      "未认证",
 	CodeTokenExpired:      "Token 过期",
 	CodeTokenInvalid:      "Token 无效",

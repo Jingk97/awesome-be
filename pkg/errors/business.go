@@ -22,6 +22,11 @@ var (
 	}
 
 	// ==================== 认证错误 (401x) ====================
+	ErrAuthError = &Error{
+		Code:    CodeAuthError,
+		Message: GetMessage(CodeAuthError),
+	}
+
 	ErrUnauthorized = &Error{
 		Code:    CodeUnauthorized,
 		Message: GetMessage(CodeUnauthorized),
